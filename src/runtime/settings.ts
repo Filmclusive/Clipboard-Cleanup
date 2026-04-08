@@ -11,9 +11,22 @@ function copySettings(value: Settings): Settings {
 }
 
 function normalizeLoaded(value: Partial<Settings>): Settings {
+  const showDockIcon =
+    typeof value.showDockIcon === 'boolean' ? value.showDockIcon : defaultSettings.showDockIcon;
+  const showMenuBarIcon =
+    typeof value.showMenuBarIcon === 'boolean'
+      ? value.showMenuBarIcon
+      : defaultSettings.showMenuBarIcon;
+
+  const normalizedVisibility =
+    showDockIcon || showMenuBarIcon
+      ? { showDockIcon, showMenuBarIcon }
+      : { showDockIcon: defaultSettings.showDockIcon, showMenuBarIcon: true };
+
   return {
     ...defaultSettings,
     ...value,
+    ...normalizedVisibility,
     ruleFlags: {
       ...defaultSettings.ruleFlags,
       ...(value.ruleFlags ?? {})

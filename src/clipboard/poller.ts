@@ -39,6 +39,10 @@ async function pollOnce(): Promise<void> {
   if (!running) return;
   const settings = getCachedSettings();
 
+  if (!settings.enabled) {
+    return;
+  }
+
   try {
     const clipboardText = await readText();
     const rawValue = clipboardText ?? '';
@@ -47,10 +51,6 @@ async function pollOnce(): Promise<void> {
       return;
     }
     lastRawSignature = rawSignature;
-
-    if (!settings.enabled) {
-      return;
-    }
 
     const frontmost = await getFrontmostApp();
     if (isAppExcluded(frontmost, settings)) {

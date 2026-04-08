@@ -13,6 +13,16 @@
     "core:resources:default",
     "core:app:default",
     "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "fs:allow-read",
+    "fs:allow-write",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "$APPCONFIG/clipboard-cleaner/*"
+        }
+      ]
+    }
   ]
 }

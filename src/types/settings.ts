@@ -10,6 +10,8 @@ export interface Settings {
   enabled: boolean;
   pollingIntervalMs: number;
   trimWhitespace: boolean;
+  showDockIcon: boolean;
+  showMenuBarIcon: boolean;
   phraseFilters: string[];
   excludedApps: string[];
   ruleFlags: SanitizerRuleFlags;
@@ -49,6 +51,8 @@ export const defaultSettings: Settings = {
   enabled: true,
   pollingIntervalMs: 250,
   trimWhitespace: false,
+  showDockIcon: true,
+  showMenuBarIcon: true,
   phraseFilters: [],
   excludedApps: defaultExcludedApps,
   ruleFlags: defaultRuleFlags

@@ -23,12 +23,14 @@
         "label": "main",
         "title": "Clipboard Cleaner",
         "visible": true,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "width": 360,
-        "height": 560,
-        "alwaysOnTop": true
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "width": 820,
+        "height": 600,
+        "minWidth": 720,
+        "minHeight": 520,
+        "alwaysOnTop": false
       }
     ]
   },
