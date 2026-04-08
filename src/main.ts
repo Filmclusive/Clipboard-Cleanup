@@ -84,7 +84,11 @@ const saveStatus = rootPanel.querySelector<HTMLParagraphElement>('#saveStatus');
 
 const ruleInputs = new Map<RuleKey, HTMLInputElement>();
 
-const sidebarApi = wireSidebar(rootPanel);
+const sidebarApi = wireSidebar(rootPanel, (targetId) => {
+  if (targetId === 'view-apps') {
+    ensureExcludedAppsApi()?.ensureLoaded();
+  }
+});
 
 SANITIZER_RULES.forEach((rule) => {
   if (!rulesContainer) return;
@@ -580,7 +584,7 @@ function buildPanel() {
   return container;
 }
 
-function wireSidebar(panel: HTMLElement) {
+function wireSidebar(panel: HTMLElement, onShowView?: (targetId: string) => void) {
   const items = Array.from(panel.querySelectorAll<HTMLButtonElement>('[data-sidebar-item]'));
   const views = Array.from(panel.querySelectorAll<HTMLElement>('[data-view]'));
   if (!items.length || !views.length) return { showView: (_targetId: string) => {} };
@@ -592,6 +596,7 @@ function wireSidebar(panel: HTMLElement) {
     views.forEach((view) => {
       view.hidden = view.id !== targetId;
     });
+    onShowView?.(targetId);
   };
 
   items.forEach((item) => {
@@ -646,10 +651,4 @@ function ensureExcludedAppsApi() {
 // Lazy-load expensive installed-app scanning only when the user opens the tab.
 const excludedApi = ensureExcludedAppsApi();
 excludedApi?.render();
-const originalShowView = sidebarApi.showView;
-sidebarApi.showView = (targetId: string) => {
-  originalShowView(targetId);
-  if (targetId === 'view-apps') {
-    ensureExcludedAppsApi()?.ensureLoaded();
-  }
-};
+void sidebarApi;
