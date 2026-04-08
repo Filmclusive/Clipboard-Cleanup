@@ -295,12 +295,13 @@ function updatePollingHint(value: number) {
 function parsePhraseInput(value: string): string[] {
   return value
     .split(/\r?\n/)
-    .map((line) => line.replace(/\r/g, ''))
-    .filter((line) => line.trim().length > 0);
+    .map((line) => line.replace(/\r/g, '').trim())
+    .filter((line) => line.length > 0);
 }
 
 function handleAddPhrase() {
-  if (!pendingSettings) return;
+  const settings = pendingSettings;
+  if (!settings) return;
   const raw = phraseFilterInput?.value ?? '';
   const entries = parsePhraseInput(raw);
   if (!entries.length) {
@@ -309,9 +310,14 @@ function handleAddPhrase() {
     }
     return;
   }
+  const existingKeys = new Set(
+    settings.phraseFilters.map((phrase) => phrase.trim().toLocaleLowerCase())
+  );
   entries.forEach((entry) => {
-    if (!pendingSettings.phraseFilters.includes(entry)) {
-      pendingSettings.phraseFilters.push(entry);
+    const key = entry.toLocaleLowerCase();
+    if (!existingKeys.has(key)) {
+      settings.phraseFilters.push(entry);
+      existingKeys.add(key);
     }
   });
   if (phraseFilterInput) {

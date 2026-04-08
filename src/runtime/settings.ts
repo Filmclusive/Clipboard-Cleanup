@@ -19,6 +19,21 @@ function copySettings(value: Settings): Settings {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizePhraseFilters(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const deduped = new Map<string, string>();
+  value.forEach((entry) => {
+    if (typeof entry !== 'string') return;
+    const trimmed = entry.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLocaleLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, trimmed);
+    }
+  });
+  return [...deduped.values()];
+}
+
 function normalizeLoaded(value: Partial<Settings>): Settings {
   const showDockIcon =
     typeof value.showDockIcon === 'boolean' ? value.showDockIcon : defaultSettings.showDockIcon;
@@ -43,7 +58,7 @@ function normalizeLoaded(value: Partial<Settings>): Settings {
     excludedApps: Array.isArray(value.excludedApps)
       ? value.excludedApps
       : defaultSettings.excludedApps,
-    phraseFilters: Array.isArray(value.phraseFilters) ? value.phraseFilters : []
+    phraseFilters: normalizePhraseFilters(value.phraseFilters)
   };
 }
 

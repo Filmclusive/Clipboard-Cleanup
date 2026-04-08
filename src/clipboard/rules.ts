@@ -14,15 +14,60 @@ export function normalizeInvisibleCharacters(input: string, replaceNbsp: boolean
   return value;
 }
 
+function escapeRegExpChar(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildFlexiblePhraseRegex(phrase: string): RegExp | null {
+  const trimmed = phrase.trim();
+  if (!trimmed) return null;
+
+  const zeroWidthOptional = '[\\u200B\\u200C\\u200D\\uFEFF]*';
+  let pattern = '';
+
+  for (const ch of Array.from(trimmed)) {
+    if (ch === ' ' || ch === '\t' || ch === '\u00A0') {
+      pattern += '[ \\t\\u00A0]+';
+      continue;
+    }
+    pattern += escapeRegExpChar(ch) + zeroWidthOptional;
+  }
+
+  return new RegExp(pattern, 'gi');
+}
+
 export function removeConfiguredPhrases(input: string, phrases: string[]): string {
   if (!phrases.length) {
     return input;
   }
-  return phrases.reduce((acc, phrase) => {
-    if (!phrase) return acc;
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return acc.replace(new RegExp(escaped, 'g'), '');
-  }, input);
+
+  const regexes = phrases
+    .map((phrase) => (typeof phrase === 'string' ? buildFlexiblePhraseRegex(phrase) : null))
+    .filter((regex): regex is RegExp => Boolean(regex));
+
+  if (!regexes.length) {
+    return input;
+  }
+
+  // For multi-line clipboard content (console errors, stack traces, logs), removing the whole line
+  // is typically more useful than deleting the matching substring.
+  if (input.includes('\n')) {
+    const newline = input.includes('\r\n') ? '\r\n' : '\n';
+    const lines = input.split(/\r?\n/);
+    const kept = lines.filter(
+      (line) =>
+        !regexes.some((regex) => {
+          // Our regexes are global (`g`) for replacement. `RegExp#test` mutates `lastIndex` when
+          // `g` is set, which can cause inconsistent matches across lines unless we reset it.
+          regex.lastIndex = 0;
+          return regex.test(line);
+        })
+    );
+    return kept.join(newline);
+  }
+
+  // Single-line content: remove just the matched substring(s).
+  return regexes.reduce((acc, regex) => acc.replace(regex, ''), input);
 }
 
 export function collapseInlineSpacing(input: string): string {
