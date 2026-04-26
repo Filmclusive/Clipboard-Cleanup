@@ -1,3 +1,3 @@
 fn main() {
-  clipboard_cleaner::run();
+    clipboard_cleaner::run();
 }

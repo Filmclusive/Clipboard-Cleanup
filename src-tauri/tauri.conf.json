@@ -15,8 +15,11 @@
       ]
     },
     "trayIcon": {
-      "iconPath": "icons/tray-icon.png",
-      "iconAsTemplate": true
+      "id": "main",
+      "iconPath": "icons/hammer-cleaner-tray.png",
+      "iconAsTemplate": true,
+      "showMenuOnLeftClick": true,
+      "tooltip": "Clipboard Cleaner"
     },
     "windows": [
       {

@@ -4,6 +4,7 @@ import { Settings, defaultSettings } from '../types/settings';
 
 const SETTINGS_FOLDER = 'clipboard-cleaner';
 const SETTINGS_FILE = 'settings.json';
+const MIN_POLL_INTERVAL_MS = 50;
 
 async function resolveSettingsPaths(): Promise<{ folderPath: string; filePath: string }> {
   // Using absolute paths avoids any scope/baseDir ambiguity and ensures parent dirs are created.
@@ -19,17 +20,19 @@ function copySettings(value: Settings): Settings {
   return JSON.parse(JSON.stringify(value));
 }
 
-function normalizePhraseFilters(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+function normalizeStringList(value: unknown, fallback: string[] = []): string[] {
+  if (!Array.isArray(value)) return [...fallback];
   const deduped = new Map<string, string>();
   value.forEach((entry) => {
     if (typeof entry !== 'string') return;
-    const trimmed = entry.trim();
-    if (!trimmed) return;
-    const key = trimmed.toLocaleLowerCase();
-    if (!deduped.has(key)) {
-      deduped.set(key, trimmed);
-    }
+    entry.split(/\r?\n|\r/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLocaleLowerCase();
+      if (!deduped.has(key)) {
+        deduped.set(key, trimmed);
+      }
+    });
   });
   return [...deduped.values()];
 }
@@ -51,14 +54,16 @@ function normalizeLoaded(value: Partial<Settings>): Settings {
     ...defaultSettings,
     ...value,
     ...normalizedVisibility,
+    pollingIntervalMs:
+      typeof value.pollingIntervalMs === 'number' && Number.isFinite(value.pollingIntervalMs)
+        ? Math.max(MIN_POLL_INTERVAL_MS, value.pollingIntervalMs)
+        : defaultSettings.pollingIntervalMs,
     ruleFlags: {
       ...defaultSettings.ruleFlags,
       ...(value.ruleFlags ?? {})
     },
-    excludedApps: Array.isArray(value.excludedApps)
-      ? value.excludedApps
-      : defaultSettings.excludedApps,
-    phraseFilters: normalizePhraseFilters(value.phraseFilters)
+    excludedApps: normalizeStringList(value.excludedApps, defaultSettings.excludedApps),
+    phraseFilters: normalizeStringList(value.phraseFilters)
   };
 }
 
@@ -80,12 +85,14 @@ export function getCachedSettings(): Settings {
   return copySettings(cachedSettings);
 }
 
-export async function persistSettings(next: Settings): Promise<void> {
+export async function persistSettings(next: Settings): Promise<Settings> {
   try {
+    const normalized = normalizeLoaded(next);
     const { folderPath, filePath } = await resolveSettingsPaths();
     await mkdir(folderPath, { recursive: true });
-    await writeTextFile(filePath, JSON.stringify(next, null, 2));
-    cachedSettings = normalizeLoaded(next);
+    await writeTextFile(filePath, JSON.stringify(normalized, null, 2));
+    cachedSettings = normalized;
+    return copySettings(cachedSettings);
   } catch (err) {
     console.error('Failed to persist settings', err);
     throw err;

@@ -11,6 +11,10 @@ export interface TrayMenuActions {
 
 export async function createTrayMenu(actions: TrayMenuActions) {
   let menu: Menu | null = null;
+  const tray = await TrayIcon.getById('main');
+  if (!tray) {
+    throw new Error('Tray icon not found. Ensure app.trayIcon is configured.');
+  }
 
   async function updateToggleLabel() {
     if (!menu) return;
@@ -61,21 +65,15 @@ export async function createTrayMenu(actions: TrayMenuActions) {
   });
 
   menu = menuInstance;
-  const tray = await TrayIcon.new({
-    menu: menuInstance,
-    tooltip: 'Clipboard Cleaner',
-    showMenuOnLeftClick: false,
-    action: (event) => {
-      if (event.type === 'Click' && event.button === 'Left' && event.buttonState === 'Up') {
-        void actions.openSettings();
-      }
-    }
-  });
+  await tray.setMenu(menuInstance);
+  await tray.setShowMenuOnLeftClick(true);
+  await tray.setTooltip('Clipboard Cleaner');
+  await tray.setVisible(true);
 
   await updateToggleLabel();
 
   return {
     refresh: updateToggleLabel,
-    close: () => tray.close()
+    close: () => tray.setVisible(false)
   };
 }

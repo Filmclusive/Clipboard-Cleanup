@@ -174,12 +174,26 @@ showMenuBarIconToggle?.addEventListener('change', () => {
 });
 
 closeButton?.addEventListener('click', () => {
-  void appWindow.hide();
+  void (async () => {
+    try {
+      await invoke('hide_main_window');
+    } catch (error) {
+      console.warn('Failed to invoke hide_main_window; falling back to window APIs', error);
+      await appWindow.hide();
+    }
+  })();
 });
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
-    void appWindow.hide();
+    void (async () => {
+      try {
+        await invoke('hide_main_window');
+      } catch (error) {
+        console.warn('Failed to invoke hide_main_window; falling back to window APIs', error);
+        await appWindow.hide();
+      }
+    })();
   }
 });
 
@@ -191,6 +205,7 @@ window.addEventListener(LAST_CLEANED_EVENT, (event) => {
 updateStatus(getLastCleanedTime()?.toISOString());
 
 const autoSaveState = { queued: false, running: false };
+let saveStatusClearTimer: number | null = null;
 
 function scheduleAutoSave() {
   if (autoSaveState.running) {
@@ -211,25 +226,51 @@ async function persistPendingChanges() {
   if (!pendingSettings) return;
   const snapshot = cloneSettings(pendingSettings);
   try {
-    await persistAndSyncSettings(snapshot);
-    if (saveStatus) {
-      saveStatus.textContent = '';
+    await persistAndSyncSettings(snapshot, () => !autoSaveState.queued);
+    if (!autoSaveState.queued) {
+      setSaveStatus('Saved.');
     }
   } catch (error) {
     console.error('Auto-save failed', error);
-    if (saveStatus) {
-      saveStatus.textContent = 'Save failed; see console.';
-    }
+    setSaveStatus('Save failed; see console.', false);
   }
 }
 
-async function persistAndSyncSettings(snapshot: Settings) {
+async function persistAndSyncSettings(snapshot: Settings, shouldUpdatePending = () => true) {
   enforceVisibilityMinimum(snapshot);
-  await persistSettings(snapshot);
-  pendingSettings = cloneSettings(snapshot);
-  applyPollerState(pendingSettings);
-  await applyVisibilityState(pendingSettings);
-  trayMenuHandle?.refresh();
+  const normalized = await persistSettings(snapshot);
+  await syncBackendSettings(normalized);
+  if (shouldUpdatePending()) {
+    pendingSettings = cloneSettings(normalized);
+  }
+  applyPollerState(normalized);
+  await applyVisibilityState(normalized);
+  await trayMenuHandle?.refresh();
+}
+
+async function syncBackendSettings(settings: Settings) {
+  try {
+    await invoke('set_settings', { settings });
+  } catch (error) {
+    console.warn('Failed to sync backend settings; disk reload will catch up', error);
+  }
+}
+
+function setSaveStatus(message: string, autoClear = true) {
+  if (!saveStatus) return;
+  if (saveStatusClearTimer) {
+    window.clearTimeout(saveStatusClearTimer);
+    saveStatusClearTimer = null;
+  }
+  saveStatus.textContent = message;
+  if (message && autoClear) {
+    saveStatusClearTimer = window.setTimeout(() => {
+      if (saveStatus) {
+        saveStatus.textContent = '';
+      }
+      saveStatusClearTimer = null;
+    }, 1800);
+  }
 }
 
 function applyPollerState(settings: Settings) {
@@ -294,7 +335,7 @@ function updatePollingHint(value: number) {
 
 function parsePhraseInput(value: string): string[] {
   return value
-    .split(/\r?\n/)
+    .split(/\r?\n|\r/)
     .map((line) => line.replace(/\r/g, '').trim())
     .filter((line) => line.length > 0);
 }
@@ -419,6 +460,13 @@ function syncUi(settings: Settings) {
 }
 
 async function showSettingsWindow() {
+  try {
+    await invoke('show_main_window');
+    return;
+  } catch (error) {
+    console.warn('Failed to invoke show_main_window; falling back to window APIs', error);
+  }
+
   if (await appWindow.isMinimized()) {
     await appWindow.unminimize();
   }
@@ -428,22 +476,22 @@ async function showSettingsWindow() {
 
 async function bootstrap() {
   const settings = await loadSettings();
+  await syncBackendSettings(settings);
   syncUi(settings);
   applyPollerState(settings);
   trayActions = {
     toggleCleaner: async () => {
       const current = await reloadSettings();
       const next = { ...current, enabled: !current.enabled };
-      await persistSettings(next);
-      applyPollerState(next);
-      trayMenuHandle?.refresh();
-      syncUi(next);
+      await persistAndSyncSettings(next);
+      syncUi(pendingSettings ?? next);
     },
     reloadSettings: async () => {
       const loaded = await reloadSettings();
+      await syncBackendSettings(loaded);
       applyPollerState(loaded);
       syncUi(loaded);
-      trayMenuHandle?.refresh();
+      await trayMenuHandle?.refresh();
     },
     openSettings: showSettingsWindow,
     quit: async () => {
@@ -544,7 +592,16 @@ function buildPanel() {
             Add the filters by pressing ⌘/Ctrl + Enter so you can keep typing while copying multi-line snippets.
           </p>
           <p class="helper-text">
+            Phrase filters only run when the cleaner is active for the frontmost app—if you copy from an app listed in
+            Excluded apps (like Terminal), the clipboard will be left untouched.
+          </p>
+          <p class="helper-text">
             Filters match the exact characters you paste—indentation, pipes, and spaces all count—so copy the snippet straight from the log.
+          </p>
+          <p class="helper-text">
+            Use <code>*</code> as a wildcard to match any characters on the same line. Use <code>**</code> or
+            <code>***</code> to match an exact character count (handy for timestamps like <code>**:**:**.***</code>).
+            Literal characters like <code>##</code> match themselves. Escape a literal star with &#92;*.
           </p>
           <p class="helper-text" id="phraseFiltersHelper"></p>
           <ul id="phraseFiltersList" class="phrase-filter-list" aria-live="polite"></ul>
@@ -553,7 +610,10 @@ function buildPanel() {
         <section class="panel-section" data-view id="view-apps" hidden>
           <div class="section-heading">
             <p class="section-title">Excluded apps</p>
-            <p class="helper-text">Exclude specific apps so their clipboard changes are never modified.</p>
+            <p class="helper-text">
+              Exclude specific apps (by name or bundle id) so their clipboard changes are never modified. Use Phrase
+              filters for removing log lines or timestamps from clipboard text.
+            </p>
           </div>
           <label class="field-group" for="excludedAppsSearch">
             <span class="field-label">Search</span>

@@ -36,6 +36,15 @@ function normalizeCodeFrameLine(line: string): string {
   return `${pointer}${lineNo} | ${content}`;
 }
 
+function shouldCollapseDiagnosticLine(line: string): boolean {
+  const trimmedStart = line.trimStart();
+  if (!trimmedStart) return false;
+  if (trimmedStart.startsWith('```')) return false;
+  if (/^at\s+\S+/.test(trimmedStart)) return false;
+  if (/^(?:>\s*)?\d+\s*\|/.test(trimmedStart)) return false;
+  return true;
+}
+
 export function sanitizeClipboardText(input: string, settings: Settings): string {
   let result = input;
   result = normalizeInvisibleCharacters(
@@ -56,7 +65,7 @@ export function sanitizeClipboardText(input: string, settings: Settings): string
       .map((line) => {
         const normalizedFrame = normalizeCodeFrameLine(line);
         if (normalizedFrame !== line) return normalizedFrame;
-        if (settings.ruleFlags.collapseInlineSpacing && !/^\s/.test(line)) {
+        if (settings.ruleFlags.collapseInlineSpacing && shouldCollapseDiagnosticLine(line)) {
           return collapseInlineSpacing(line);
         }
         return line;

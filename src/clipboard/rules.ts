@@ -23,15 +23,60 @@ function buildFlexiblePhraseRegex(phrase: string): RegExp | null {
   if (!trimmed) return null;
 
   const zeroWidthOptional = '[\\u200B\\u200C\\u200D\\uFEFF]*';
+  const wildcardAnyLength = '[^\\r\\n]*?';
   let pattern = '';
+  let escaping = false;
+  let hasLiteralToken = false;
 
-  for (const ch of Array.from(trimmed)) {
+  const chars = Array.from(trimmed);
+  for (let index = 0; index < chars.length; index += 1) {
+    const ch = chars[index];
+    if (escaping) {
+      pattern += escapeRegExpChar(ch) + zeroWidthOptional;
+      hasLiteralToken = true;
+      escaping = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaping = true;
+      continue;
+    }
+    if (ch === '#') {
+      pattern += escapeRegExpChar(ch) + zeroWidthOptional;
+      hasLiteralToken = true;
+      continue;
+    }
+    if (ch === '*') {
+      let runLength = 1;
+      while (index + runLength < chars.length && chars[index + runLength] === '*') {
+        runLength += 1;
+      }
+      index += runLength - 1;
+
+      if (runLength === 1) {
+        // `*` matches any characters on a single line (including digits, punctuation, spaces).
+        pattern += wildcardAnyLength;
+      } else {
+        // `**`, `***`, etc match an exact character count. Useful for timestamps like `**:**:**.***`.
+        pattern += `[^\\r\\n]{${runLength}}`;
+      }
+      continue;
+    }
     if (ch === ' ' || ch === '\t' || ch === '\u00A0') {
       pattern += '[ \\t\\u00A0]+';
+      hasLiteralToken = true;
       continue;
     }
     pattern += escapeRegExpChar(ch) + zeroWidthOptional;
+    hasLiteralToken = true;
   }
+
+  if (escaping) {
+    pattern += '\\\\';
+    hasLiteralToken = true;
+  }
+
+  if (!hasLiteralToken) return null;
 
   return new RegExp(pattern, 'gi');
 }
@@ -61,24 +106,6 @@ export function removeConfiguredPhrases(input: string, phrases: string[]): strin
     return input;
   }
 
-  // For multi-line clipboard content (console errors, stack traces, logs), removing the whole line
-  // is typically more useful than deleting the matching substring.
-  if (input.includes('\n')) {
-    const newline = input.includes('\r\n') ? '\r\n' : '\n';
-    const lines = input.split(/\r?\n/);
-    const kept = lines.filter(
-      (line) =>
-        !regexes.some((regex) => {
-          // Our regexes are global (`g`) for replacement. `RegExp#test` mutates `lastIndex` when
-          // `g` is set, which can cause inconsistent matches across lines unless we reset it.
-          regex.lastIndex = 0;
-          return regex.test(line);
-        })
-    );
-    return kept.join(newline);
-  }
-
-  // Single-line content: remove just the matched substring(s).
   return regexes.reduce((acc, regex) => acc.replace(regex, ''), input);
 }
 
