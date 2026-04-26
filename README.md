@@ -1,29 +1,27 @@
-# Clipboard Cleaner (macOS clipboard sanitizer)
+# Clipboard Cleanup (macOS clipboard sanitizer)
 
-Clipboard Cleaner is a small Tauri + Vite utility that watches the macOS clipboard, applies a configurable sanitization rule set, and rewrites the cleaned text so every paste stays tidy. The UI mimics a background utility (tray menu, floating window) rather than a full application to keep the utility as frictionless as BetterTouchTool-style helpers.
+Clean your clipboard of repeative noise when coding with ai-assited tools. Saves tokens by not including empty [spaces] or multiple line breaks. 
 
 
 <img width="801" height="569" alt="image" src="https://github.com/user-attachments/assets/157a68c2-5f08-4bdf-9c1f-5d1ff9d70cdb" />
 <img width="787" height="549" alt="image" src="https://github.com/user-attachments/assets/1d8aadc6-8c62-40dc-b4d1-b7420cbe1b5e" />
 
 
-## EXAMPLE
-Turn
+## EXAMPLE: Turn
 
-## Error Type
+Error Type
 Console Error
 
-## Error Message
+Error Message
 
 
+at Logger.error (src/lib/utils/logger.ts:989:27)
+at Object.error (src/lib/utils/logger.ts:1138:57)
 
-    at Logger.error (src/lib/utils/logger.ts:989:27)
-    at Object.error (src/lib/utils/logger.ts:1138:57)
-
-## Code Frame
+Code Frame
   987 |     const category = this.determineCategory(module);
   988 |     if (this.shouldLog('error', category)) {
-> 989 |       this.browserConsole.error(this.formatMessage(module, message), ...args);
+989 |       this.browserConsole.error(this.formatMessage(module, message), ...args);
       |                           ^
   990 |     }
   991 |   }
@@ -33,31 +31,19 @@ Next.js version: 16.2.1 (Turbopack)
 
 
 
-into 
-
-
-## Error Type
-Console Error
-
-## Error Message
-
- at Logger.error (src/lib/utils/logger.ts:989:27)
- at Object.error (src/lib/utils/logger.ts:1138:57)
-
-## Code Frame
- 987 | const category = this.determineCategory(module);
- 988 | if (this.shouldLog('error', category)) {
-> 989 | this.browserConsole.error(this.formatMessage(module, message), ...args);
- | ^
- 990 | }
- 991 | }
- 992 |
-
-Next.js version: 16.2.1 (Turbopack)
+## INTO 
 
 
 
-or even better, filter out the whoel section since it's repeatitive error message. 
+"987 | const category = this.determineCategory(module);
+988 | if (this.shouldLog('error', category)) {
+989 | this.browserConsole.error(this.formatMessage(module, message), ...args);
+990 | }
+991 | }"
+
+
+
+or even better, filter out the whole section since it's repeatitive error message. 
 
 
 ## What it does
