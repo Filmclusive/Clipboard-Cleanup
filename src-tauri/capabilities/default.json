@@ -10,6 +10,7 @@
     "core:window:default",
     "core:menu:default",
     "core:tray:default",
+    "core:image:default",
     "core:resources:default",
     "core:app:default",
     "clipboard-manager:allow-read-text",
